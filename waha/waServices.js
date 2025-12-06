@@ -63,9 +63,11 @@ const whatsapp = await (async () => {
 			if (workerId) {
 				service.waha_session = workerId;
 				await service.save();
+				await (new Promise((resolve) => setTimeout(resolve, 5_000)))
+				break;
 			}
-			await (new Promise((resolve) => setTimeout(resolve, 5_000)))
 		}
+		attempt++;
 	}
 	if (!Boolean(service.waha_session)) {
 		exit();
