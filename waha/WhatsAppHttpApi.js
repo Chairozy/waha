@@ -506,7 +506,7 @@ class WhatsAppHttpApi {
               const { data } = await this.apiSession().qr();
               this.qr = data.toString("base64");
             }else{
-              this.qr = null;
+              this.qr = undefined;
             }
           }
           this.ev.emit(event.event, event.payload, event.timestamp, event.metadata);

@@ -140,7 +140,7 @@ whatsapp.ev.on('session.status', async ({ status }) => {
 		if (timerClose == null && sockets.guest.length <= 0) {
 			setAutoClose();
 		}
-		socketEmit('qr', this.qr);
+		socketEmit('qr', whatsapp.qr);
 	}else if (status == whatsapp.SESSION_STATUS.WORKING) {
 		removeAutoClose();
 		service.phone_auth = whatsapp.user.jid;
