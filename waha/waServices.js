@@ -143,13 +143,13 @@ whatsapp.ev.on('session.status', async ({ status }) => {
 		socketEmit('qr', whatsapp.qr);
 	}else if (status == whatsapp.SESSION_STATUS.WORKING) {
 		removeAutoClose();
-		service.phone_auth = whatsapp.user.jid;
-		service.latest_phone_auth = whatsapp.user.jid;
+		service.phone_auth = whatsapp.jid.normalizePnFormat(whatsapp.user.jid);
+		service.latest_phone_auth = service.phone_auth;
 		service.save({fields: ["phone_auth", "latest_phone_auth"]})
 		socketEmit('user', whatsapp.user);
 		mbsMessage.freshDatabaseQueue();
 		// Update Contact db and GorupContact db
-		const myAuthPhone = whatsapp.user.jid.replace(/:\d*@/g, '@').replace('@c.us', '@s.whatsapp.net');
+		const myAuthPhone = service.phone_auth;
 		whatsapp.apiContact().all().then(async ({data: result}) => {
 			// [ {id: '623718@c.us', name: 'Foo' pushname: '' } ]
 			const available = [];

@@ -69,7 +69,7 @@ function useMBSFeature (whatsapp, service, user) {
     if (!service.feature_forward || !service.is_forward || !(service.is_main_forward || service.is_specified_forward)) return;
     if (msg.fromMe) return;
 
-    const self_phone = whatsapp.jid.normalizePnFormat(service.phone_auth);
+    const self_phone = service.phone_auth;
     const cost_credits = user.is_subscription_service ? 0 : service.cost_per_forward;
 
     let receivers = [],
@@ -378,7 +378,7 @@ function useMBSFeature (whatsapp, service, user) {
     if (!service.feature_out_forward || !service.is_out_forward || !(service.is_out_main_forward || service.is_out_specified_forward)) return;
     if (!msg.fromMe) return;
 
-    const self_phone = whatsapp.jid.normalizePnFormat(service.phone_auth);
+    const self_phone = service.phone_auth;
     const cost_credits = user.is_subscription_service ? 0 : service.cost_per_forward;
 
     let out_receivers = [],
@@ -557,7 +557,7 @@ function useMBSFeature (whatsapp, service, user) {
 
     if (msg.fromMe || !msg.body || whatsapp.jid.isJidGroup(remoteJid)) return;
 
-    const self_phone = whatsapp.jid.normalizePnFormat(service.phone_auth);
+    const self_phone = service.phone_auth;
     const cost_credits = user.is_subscription_service ? 0 : service.cost_per_forward;
     const text = msg.body;
 
