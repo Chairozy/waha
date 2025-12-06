@@ -60,9 +60,19 @@ const whatsapp = await (async () => {
 		const isNewDocker = !Boolean(service.waha_session);
 		if (isNewDocker) {
 			const {workerId} = await WhatsAppHttpApi.dockerCreate(service.id, dockerPort);
-			service.waha_session = workerId;
-			await service.save();
+			if (workerId) {
+				service.waha_session = workerId;
+				await service.save();
+			}
+			await (new Promise((resolve) => setTimeout(resolve, 5_000)))
 		}
+	}
+	if (!Boolean(service.waha_session)) {
+		exit();
+	}
+	attempt = 0;
+	while (attempt < 3) {
+		console.log(service.waha_session);
 		const whatsapp = new WhatsAppHttpApi(
 			service.waha_session,
 			`${process.env.APP_WH_DOCKER_HOST}`
@@ -70,11 +80,15 @@ const whatsapp = await (async () => {
 		process.env.APP_WH_SESSION_NAME && (whatsapp.session.name = process.env.APP_WH_SESSION_NAME);
 		
 		try {
-			const { status } = (await whatsapp.apiSession().get()).data;
-			console.log(status);
-			if (status == whatsapp.SESSION_STATUS.STOPPED || status == whatsapp.SESSION_STATUS.FAILED) {
-				await whatsapp.apiSession().restart();
-			}
+			let isOff = true;
+			do {
+				const { status } = (await whatsapp.apiSession().get()).data;
+				console.log(status);
+				isOff = status == whatsapp.SESSION_STATUS.STOPPED || status == whatsapp.SESSION_STATUS.FAILED;
+				if (status == whatsapp.SESSION_STATUS.STOPPED || status == whatsapp.SESSION_STATUS.FAILED) {
+					await whatsapp.apiSession().restart();
+				}
+			} while(isOff)
 			return whatsapp;
 		} catch (err) {
 			const dockerResult = await whatsapp.dockerStart();
