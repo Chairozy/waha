@@ -63,7 +63,7 @@ const whatsapp = await (async () => {
 			if (workerId) {
 				service.waha_session = workerId;
 				await service.save();
-				await (new Promise((resolve) => setTimeout(resolve, 5_000)))
+				await (new Promise((resolve) => setTimeout(resolve, 10_000)));
 				break;
 			}
 		}
@@ -93,7 +93,9 @@ const whatsapp = await (async () => {
 			} while(isOff)
 			return whatsapp;
 		} catch (err) {
+			console.log(`${err}`);
 			const dockerResult = await whatsapp.dockerStart();
+			await (new Promise((resolve) => setTimeout(resolve, 10_000)));
 			if (dockerResult.error) {
 				await whatsapp.dockerDelete();
 				service.waha_session = null;
