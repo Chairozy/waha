@@ -14,3 +14,9 @@ nsend.txt
 ntask.txt
 .envwaha
 .sessions
+accounts
+assets
+redis
+create_account.sh
+start_docker.sh
+stop_docker.sh
