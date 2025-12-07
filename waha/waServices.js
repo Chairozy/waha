@@ -90,6 +90,11 @@ const whatsapp = await (async () => {
 				if (status == whatsapp.SESSION_STATUS.STOPPED || status == whatsapp.SESSION_STATUS.FAILED) {
 					await whatsapp.apiSession().restart();
 				}
+				if (status == whatsapp.SESSION_STATUS.WORKING) {
+					const { data } = await whatsapp.apiSession().me();
+					whatsapp.user = data;
+					whatsapp.name = data.pushName;
+				}
 			} while(isOff)
 			return whatsapp;
 		} catch (err) {
@@ -737,7 +742,7 @@ io.on("connection", function (socket) {
 
 	const clientId = Date.now();
 	sockets.guest.push({id, clientId, socket})
-	console.log("connected: ", clientId, id, '('+sockets.guest.length+')');
+	console.log("connected: ", clientId, id, '('+sockets.guest.length+')', whatsapp.stating, whatsapp.user);
 
 	if (whatsapp.qr) socketEmit('qr', whatsapp.qr);
 
