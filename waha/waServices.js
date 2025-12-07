@@ -86,6 +86,7 @@ const whatsapp = await (async () => {
 			do {
 				const { status } = (await whatsapp.apiSession().get()).data;
 				console.log(status);
+				whatsapp.session.status = status;
 				isOff = status == whatsapp.SESSION_STATUS.STOPPED || status == whatsapp.SESSION_STATUS.FAILED;
 				if (status == whatsapp.SESSION_STATUS.STOPPED || status == whatsapp.SESSION_STATUS.FAILED) {
 					await whatsapp.apiSession().restart();
@@ -751,7 +752,13 @@ io.on("connection", function (socket) {
 	sockets.guest.push({id, clientId, socket})
 	console.log("connected: ", clientId, id, '('+sockets.guest.length+')', whatsapp.stating, whatsapp.user);
 
-	if (whatsapp.qr) socketEmit('qr', whatsapp.qr);
+	if (whatsapp.stating == 'qr' && !whatsapp.qr) {
+		whatsapp.apiSession().qr()
+		.then(({ data }) => {
+			whatsapp.qr = data.toString("base64");
+			socketEmit('qr', whatsapp.qr);
+		});
+	}else if (whatsapp.qr) socketEmit('qr', whatsapp.qr);
 
 	if (whatsapp.stating == 'online') {
 		socketEmit('user', whatsapp.user);
