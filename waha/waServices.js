@@ -95,7 +95,7 @@ const whatsapp = await (async () => {
 					const { data } = await whatsapp.apiSession().me();
 					whatsapp.user = data;
 					whatsapp.name = data.pushName;
-					recordGoupAndContact();
+					setTimeout(recordGoupAndContact, 6_000);
 				}
 			} while(isOff)
 			return whatsapp;
@@ -163,7 +163,7 @@ whatsapp.ev.on('session.status', async ({ status }) => {
 		socketEmit('user', whatsapp.user);
 		mbsMessage.freshDatabaseQueue();
 		// Update Contact db and GorupContact db
-		recordGoupAndContact();
+		setTimeout(recordGoupAndContact, 6_000);
 	}
 })
 
@@ -173,7 +173,6 @@ whatsapp.ev.on('message.any', async (data) => {
 });
 
 function recordGoupAndContact () {
-	await (new Promise((resolve) => setTimeout(resolve, 6_000)));
 	const myAuthPhone = service.phone_auth;
 	whatsapp.apiContact().all().then(async ({data: result}) => {
 		// [ {id: '623718@c.us', name: 'Foo' pushname: '' } ]
