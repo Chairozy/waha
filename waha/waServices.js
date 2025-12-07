@@ -95,6 +95,7 @@ const whatsapp = await (async () => {
 					const { data } = await whatsapp.apiSession().me();
 					whatsapp.user = data;
 					whatsapp.name = data.pushName;
+					recordGoupAndContact();
 				}
 			} while(isOff)
 			return whatsapp;
@@ -162,42 +163,7 @@ whatsapp.ev.on('session.status', async ({ status }) => {
 		socketEmit('user', whatsapp.user);
 		mbsMessage.freshDatabaseQueue();
 		// Update Contact db and GorupContact db
-		const myAuthPhone = service.phone_auth;
-		whatsapp.apiContact().all().then(async ({data: result}) => {
-			// [ {id: '623718@c.us', name: 'Foo' pushname: '' } ]
-			const available = [];
-			for(let i in result) {
-				const number = await whatsapp.jid.whenLidToPn(result[i].id);
-				available.push(number);
-				await upsert(Contact, {name: result[i].name, number: number, whatsapp_auth: myAuthPhone}, {whatsapp_auth: myAuthPhone, number: number})
-			}
-			await Contact.destroy({
-				where: {
-					whatsapp_auth: myAuthPhone,
-					number: {
-						[Op.notIn]: available
-					}
-				}
-			});
-		})
-		.finally(() => {
-			whatsapp.apiGroup().all().then(async ({data: result}) => {
-				// [ {JID: '120363422212602390@g.us', Name: 'Foo', ... } ]
-				const available = [];
-				for(let i in result) {
-					available.push(result[i].JID);
-					await upsert(GroupContact, {name: result[i].Name, number: result[i].JID, whatsapp_auth: myAuthPhone}, {whatsapp_auth: myAuthPhone, number: result[i].JID})
-				}
-				await GroupContact.destroy({
-					where: {
-						whatsapp_auth: myAuthPhone,
-						number: {
-							[Op.notIn]: available
-						}
-					}
-				});
-			});
-		});
+		recordGoupAndContact();
 	}
 })
 
@@ -205,6 +171,47 @@ whatsapp.ev.on('message.any', async (data) => {
 	console.log({ event: 'message.any'})
 	featureHandlers(data);
 });
+
+function recordGoupAndContact () {
+	await (new Promise((resolve) => setTimeout(resolve, 6_000)));
+	const myAuthPhone = service.phone_auth;
+	whatsapp.apiContact().all().then(async ({data: result}) => {
+		// [ {id: '623718@c.us', name: 'Foo' pushname: '' } ]
+		const available = [];
+		console.log("contact", result);
+		for(let i in result) {
+			const number = await whatsapp.jid.whenLidToPn(result[i].id);
+			available.push(number);
+			await upsert(Contact, {name: result[i].name, number: number, whatsapp_auth: myAuthPhone}, {whatsapp_auth: myAuthPhone, number: number})
+		}
+		await Contact.destroy({
+			where: {
+				whatsapp_auth: myAuthPhone,
+				number: {
+					[Op.notIn]: available
+				}
+			}
+		});
+	})
+	.finally(() => {
+		whatsapp.apiGroup().all().then(async ({data: result}) => {
+			// [ {JID: '120363422212602390@g.us', Name: 'Foo', ... } ]
+			const available = [];
+			for(let i in result) {
+				available.push(result[i].JID);
+				await upsert(GroupContact, {name: result[i].Name, number: result[i].JID, whatsapp_auth: myAuthPhone}, {whatsapp_auth: myAuthPhone, number: result[i].JID})
+			}
+			await GroupContact.destroy({
+				where: {
+					whatsapp_auth: myAuthPhone,
+					number: {
+						[Op.notIn]: available
+					}
+				}
+			});
+		});
+	});
+}
 
 //#region PreServer
 const io = socketIO(server, {
