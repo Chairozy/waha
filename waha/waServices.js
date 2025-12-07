@@ -127,18 +127,25 @@ process.on('message', function(packet) {
 });
 mbsMessage.startWatch();
 
+async function restartWhatsapp() {
+	await (new Promise((resolve) => setTimeout(resolve, 10_000)));
+	if (whatsapp.stating == 'offline') await whatsapp.apiSession().restart();
+}
+
 whatsapp.ev.on('session.status', async ({ status }) => {
 	console.log({ event: 'session.status', status });
 	if (status == whatsapp.SESSION_STATUS.STOPPED || status == whatsapp.SESSION_STATUS.FAILED) {
-		const authPhone = await whatsapp.apiSession().me();
-		if (!Boolean(authPhone.data.id)) {
-			service.phone_auth = null;
-			service.save({fields: ["phone_auth"]})
-			if (sockets.guest.length <= 0){
-				setAutoClose();
+		try {
+			const authPhone = await whatsapp.apiSession().get();
+			if (!Boolean(authPhone)) {
+				service.phone_auth = null;
+				service.save({fields: ["phone_auth"]})
+				if (sockets.guest.length <= 0){
+					setAutoClose();
+				}
 			}
-		}
-		await whatsapp.apiSession().restart();
+		} catch (err) {}
+		restartWhatsapp();
 	}else if (status == whatsapp.SESSION_STATUS.SCAN_QR_CODE) {
 		service.phone_auth = null;
 		service.save({fields: ["phone_auth"]});
