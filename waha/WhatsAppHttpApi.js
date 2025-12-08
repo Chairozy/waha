@@ -487,7 +487,7 @@ class WhatsAppHttpApi {
     this.qr = undefined;
 
     this.listenEvents = () => {
-      const wsurl = `${docker_host.replace("http://", "ws://").replace("https://", "wss://")}:${port}/ws?x-api-key=${this.api_key}&session=${this.session.name}&events=session.status&events=message.any`;
+      const wsurl = `${docker_host.replace("http://", "ws://").replace("https://", "wss://")}:${port}/ws?x-api-key=${this.api_key}&session=${this.session.name}&events=session.status&events=message.any&events=group.v2.join&events=group.v2.leave`;
       const ws = new WebSocket(wsurl);
 
       ws.on('open', () => {

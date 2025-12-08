@@ -171,6 +171,12 @@ whatsapp.ev.on('message.any', async (data) => {
 	console.log({ event: 'message.any'})
 	featureHandlers(data);
 });
+whatsapp.ev.on('group.v2.join', async ({group}) => {
+	upsert(GroupContact, {name: group.subject, number: group.id, whatsapp_auth: service.phone_auth}, {whatsapp_auth: service.phone_auth, number: group.id})
+});
+whatsapp.ev.on('group.v2.leave', async ({group}) => {
+	GroupContact.destroy({where: { whatsapp_auth: myAuthPhone, number: group.id }});
+});
 
 function recordGoupAndContact () {
 	const myAuthPhone = service.phone_auth;
@@ -291,6 +297,26 @@ app.post("/api/group/all", async (req, res) => {
 	}catch(e) {
 		res.status(400).json({ message: "Service problem", code: 500 });
 	}
+});
+let contactSyncDelay = 0;
+app.post("/api/contact/sync", async (req, res) => {
+	res.status(200).send("Ok");
+	const _date = Date.now();
+	try {
+		if (whatsapp.stating === 'online' && (_date - contactSyncDelay) > 10_000) {
+			contactSyncDelay = _date;
+			// [ {id: '623718@c.us', name: 'Foo' pushname: '' } ]
+			whatsapp.apiContact().all()
+			.then(async ({data: result}) => {
+				for(let i in result) {
+					const number = await whatsapp.jid.whenLidToPn(result[i].id);
+					if (!req.body[number]) {
+						Contact.create({name: result[i].name, number: number, whatsapp_auth: service.phone_auth})
+					}
+				}
+			})
+		}
+	}catch(e) {}
 });
 
 app.post("/api/reciever/reload", async (req, res) => {
