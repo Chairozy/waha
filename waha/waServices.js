@@ -318,6 +318,24 @@ app.post("/api/contact/sync", async (req, res) => {
 		}
 	}catch(e) {}
 });
+let groupSyncDelay = 0;
+app.post("/api/group/sync", async (req, res) => {
+	res.status(200).send("Ok");
+	const _date = Date.now();
+	try {
+		if (whatsapp.stating === 'online' && (_date - groupSyncDelay) > 10_000) {
+			groupSyncDelay = _date;
+			whatsapp.apiGroup().all()
+			.then(async ({data: result}) => {
+				for(let i in result) {
+					if (!req.body[result[i].JID]) {
+						GroupContact.create({name: result[i].Name, number: result[i].JID, whatsapp_auth: service.phone_auth})
+					}
+				}
+			})
+		}
+	}catch(e) {}
+});
 
 app.post("/api/reciever/reload", async (req, res) => {
 	res.status(200).json({ message: "Reciever triggered reload", code: 100 });
