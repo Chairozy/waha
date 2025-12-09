@@ -43,6 +43,64 @@ function useMBSFeature (whatsapp, service, user) {
     return false;
   }
 
+  function awayTracks() {
+    setInterval(() => {
+      if (!service.feature_chat_bot_google || !service.is_chat_away_message) return;
+      sequelize.query(
+        "SELECT `chatbot_sheets`.`id`, `chatbot_sheets`.`reply`, `chatbot_sheets`.`interval` FROM `chatbot_sheets` " +
+        "WHERE `chatbot_sheets`.`whatsapp_service_id` = "+service.id+" " +
+        "AND `chatbot_sheets`.`type` = 'away' " +
+        "LIMIT 1",
+        { type: "SELECT" }
+      ).then(async ([ botReply ]) => {
+        if (!botReply) return;
+        const rows = activity.getAwayNumbers(botReply.interval).catch(() => {});
+        if (rows && Array.isArray(rows)) {
+          for (const row in rows) {
+            const remoteJid = row.id;
+            const text_reply = botReply.reply;
+            const send_event = 'chat_bot_away_reply';
+            const messageSentLog = await service.createMessageSentLog({
+              message : text_reply,
+              event: send_event,
+              processed_messages: 1,
+              phone_auth: service.phone_auth,
+              status: 'complete'
+            }).catch(err => null);
+
+            const insertNumberSentLog = (status, message, payload = null) => {
+              messageSentLog.createMessageNumberSentLog({
+                number: remoteJid,
+                entity: [remoteJid],
+                status: status,
+                response: message,
+                id_stanza: payload ? payload.id_stanza : null,
+                send_json: payload ? payload.send_json : null,
+                cost_credits: status == 'success' ? user.is_subscription_service ? 0 : service.cost_per_forward : 0
+              });
+            }
+
+            if (user.is_subscription_service || payWithCredit(messageSentLog, send_event)) {
+              whatsapp.sendMessage(remoteJid, {text: text_reply})
+              .then(({data}) => {
+                data = cloneWithoutHiddenData(data);
+                insertNumberSentLog('success', 'Pesan Terkirim', {
+                  send_json: data,
+                  id_stanza: getChatId(data)
+                })
+              }).catch(err => {
+                insertNumberSentLog('success', 'Pesan Terkirim')
+                console.log(err)
+              })
+            }else{
+              insertNumberSentLog('abort', 'Kredit tidak mencukupi')
+            }
+          }
+        }
+      }).catch(e => {console.log(e)})
+    })
+  }
+
   async function featureHandlers(msg) {
     // message incoming at pass of before current timestamp is possible;
     if (!service.phone_auth) return;
@@ -58,7 +116,9 @@ function useMBSFeature (whatsapp, service, user) {
 
     await chatBotFeature(msgFrom, msg);
     if (service.feature_chat_bot_google && (service.is_chat_bot_google || service.is_chat_welcome_message || service.is_chat_away_message)) {
-      activity.updateChatTime(msg.fromMe ? "me" : msgFrom, msg.timestamp);
+      if (!whatsapp.jid.isJidGroup(msgFrom) && !msg.fromMe) {
+        activity.updateChatTime(msgFrom, msg.timestamp);
+      }
     }
 
     await outForwardMessage(msgFrom, msg);
@@ -265,14 +325,12 @@ function useMBSFeature (whatsapp, service, user) {
         }
       }
     }else{
-      const remoteId = jidGroup ? null : remoteJid.split("@")[0];
-      const hiddenPhone = jidGroup ? null : remoteId.substring(0, 5) + " * * * * " + remoteId.substring(remoteId.length - 3);
       const doForward = async (localReceivers, sender = null) => {
         const contact = sender || await (jidGroup ? GroupContact : Contact).findOne({ where: {
           whatsapp_auth: self_phone,
           number: remoteJid
         } })
-        const template = `_Received Message on_\n${service.name ? '*'+service.name+' ' : '*'}(${service.phone_auth.split(":")[0]})*\n_Message From${ (jidGroup ? " Group": "") }_\n${ contact && contact.name ? "*"+contact.name+"*" : "" }${jidGroup ? "" : " "+hiddenPhone}`;
+        const template = `_Received Message on_\n${service.name ? '*'+service.name+' ' : '*'}(${service.phone_auth.split(":")[0]})*\n_Message From${ (jidGroup ? " Group": "") }_\n${ contact && contact.name ? "*"+contact.name+"*" : "" }${jidGroup ? "" : " "+(remoteJid.split("@")[0])}`;
 
         if (Boolean(msg.body)) {
           contentBuilder.message(template + '\n\r\n' + msg.body);
@@ -446,14 +504,12 @@ function useMBSFeature (whatsapp, service, user) {
     // forwards
     const isGroup = whatsapp.jid.isJidGroup(remoteJid);
 
-    const remoteId = isGroup ? null : remoteJid.split("@")[0];
-
     const doForward = async (localReceivers, sender = null) => {
       let contact = sender || await (isGroup ? GroupContact : Contact).findOne({ where: {
         whatsapp_auth: self_phone,
         number: remoteJid
       } })
-      const template = `_Sent Message from_\n${service.name ? '*'+service.name+' ' : '*'}(${service.phone_auth.split(":")[0]})*\n_Message To${ (isGroup ? " Group": "") }_\n${ contact && contact.name ? "*"+contact.name+"*" : "" }${isGroup ? "" : " "+remoteId}`;
+      const template = `_Sent Message from_\n${service.name ? '*'+service.name+' ' : '*'}(${service.phone_auth.split(":")[0]})*\n_Message To${ (isGroup ? " Group": "") }_\n${ contact && contact.name ? "*"+contact.name+"*" : "" }${isGroup ? "" : " "+(remoteJid.split("@")[0])}`;
       if (Boolean(msg.body)) {
         contentBuilder.message(template + '\n\r\n' + msg.body)
       }else if(msg.hasMedia) {
@@ -612,19 +668,6 @@ function useMBSFeature (whatsapp, service, user) {
         if (newMeet) await doBotReply(botReply.reply, 'chat_bot_welcome_reply');
       }).catch(e => {console.log(e)})
     }
-    if (service.is_chat_away_message) {
-      await sequelize.query(
-        "SELECT `chatbot_sheets`.`id`, `chatbot_sheets`.`reply`, `chatbot_sheets`.`interval` FROM `chatbot_sheets` " +
-        "WHERE `chatbot_sheets`.`whatsapp_service_id` = "+service.id+" " +
-        "AND `chatbot_sheets`.`type` = 'away' " +
-        "LIMIT 1",
-        { type: "SELECT" }
-      ).then(async ([ botReply ]) => {
-        if (!botReply) return;
-        const newMeet = await activity.retrieveChat('me', botReply.interval).catch(() => {})
-        if (newMeet) await doBotReply(botReply.reply, 'chat_bot_away_reply');
-      }).catch(e => {console.log(e)})
-    }
     if (service.is_chat_bot_google) {
       await sequelize.query(
         "SELECT `chatbot_sheets`.`id`, `chatbot_sheets`.`reply` FROM `chatbot_sheets` " +
@@ -641,7 +684,8 @@ function useMBSFeature (whatsapp, service, user) {
   }
 
   return {
-    featureHandlers
+    featureHandlers,
+    awayTracks
   }
 }
 

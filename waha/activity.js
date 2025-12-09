@@ -34,15 +34,31 @@ exports.useSqlTrack = function (dbName) {
     })
   }
   
-
   function retrieveChat(phone, minute = null) {
     return new Promise((resolve, reject) => {
-      db.get("SELECT * FROM `activity` WHERE `id` = '"+phone+"'" + (minute === null ? "" : " AND DATETIME(`activity`.`latest`, '+"+minute+" MINUTES') < '"+moment().format("YYYY-MM-DD HH:mm:ss")+"'"), (err, row) => {
+      db.get("SELECT * FROM `activity` WHERE `id` = '"+phone+"'", (err, row) => {
         if (err) return reject(err);
-        resolve(row)
+        if (row) {
+          db.get("SELECT * FROM `activity` WHERE `id` = '"+phone+"'" + (minute === null ? "" : " AND DATETIME(`activity`.`latest`, '+"+minute+" MINUTES') < '"+moment().format("YYYY-MM-DD HH:mm:ss")+"'"), (err, row) => {
+            if (err) return reject(err);
+            resolve(!!row)
+          });
+        }else{
+          resolve(true);
+        }
       });
     })
   }
 
-  return {updateChatTime, retrieveChat, db}
+  function getAwayNumbers(minute) {
+    return new Promise((resolve, reject) => {
+      const now = moment().format("YYYY-MM-DD HH:mm:ss");
+      db.all("SELECT * FROM `activity` WHERE `id` != 'me' AND DATETIME(`activity`.`latest`, '+"+minute+" MINUTES') >= '"+now+"' AND DATETIME(`activity`.`latest`, '+"+(minute+1)+" MINUTES') <= '"+now+"'", (err, rows) => {
+        if (err) return reject(err);
+        resolve(rows)
+      });
+    })
+  }
+
+  return {updateChatTime, retrieveChat, getAwayNumbers, db}
 }

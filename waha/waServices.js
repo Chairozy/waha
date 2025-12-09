@@ -116,7 +116,7 @@ const whatsapp = await (async () => {
 })()
 
 const mbsMessage = useMBSMessage(whatsapp, service, user)
-const { featureHandlers } = useMBSFeature(whatsapp, service, user)
+const { featureHandlers, awayTracks } = useMBSFeature(whatsapp, service, user)
 
 process.on('message', function(packet) {
 	if (packet.type == "process:message") {
@@ -167,6 +167,8 @@ whatsapp.ev.on('session.status', async ({ status }) => {
 	}
 })
 
+awayTracks();
+
 whatsapp.ev.on('message.any', async (data) => {
 	console.log({ event: 'message.any'})
 	featureHandlers(data);
@@ -183,11 +185,12 @@ function recordGoupAndContact () {
 	whatsapp.apiContact().all().then(async ({data: result}) => {
 		// [ {id: '623718@c.us', name: 'Foo' pushname: '' } ]
 		const available = [];
-		console.log("contact", result);
 		for(let i in result) {
 			const number = await whatsapp.jid.whenLidToPn(result[i].id);
-			available.push(number);
-			await upsert(Contact, {name: result[i].name, number: number, whatsapp_auth: myAuthPhone}, {whatsapp_auth: myAuthPhone, number: number})
+			if (number) {
+				available.push(number);
+				await upsert(Contact, {name: result[i].name, number: number, whatsapp_auth: myAuthPhone}, {whatsapp_auth: myAuthPhone, number: number})
+			}
 		}
 		await Contact.destroy({
 			where: {
@@ -306,11 +309,12 @@ app.post("/api/contact/sync", async (req, res) => {
 		if (whatsapp.stating === 'online' && (_date - contactSyncDelay) > 10_000) {
 			contactSyncDelay = _date;
 			// [ {id: '623718@c.us', name: 'Foo' pushname: '' } ]
+			const availables = new Set(req.body);
 			whatsapp.apiContact().all()
 			.then(async ({data: result}) => {
 				for(let i in result) {
 					const number = await whatsapp.jid.whenLidToPn(result[i].id);
-					if (!req.body[number]) {
+					if (number && !availables.has(number)) {
 						Contact.create({name: result[i].name, number: number, whatsapp_auth: service.phone_auth})
 					}
 				}
