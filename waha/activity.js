@@ -37,7 +37,7 @@ exports.useSqlTrack = function (dbName) {
   function getAwayNumbers(minute, now) {
     return new Promise((resolve, reject) => {
       const seconds = minute*60;
-      db.all("SELECT * FROM `activity` WHERE `id` != 'me' AND DATETIME(`activity`.`latest`, '+"+(seconds)+" SECONDS') >= '"+now+"' AND DATETIME(`activity`.`latest`, '+"+(seconds+60)+" SECONDS') < '"+now+"'", (err, rows) => {
+      db.all("SELECT * FROM `activity` WHERE `id` != 'me' AND DATETIME(`activity`.`latest`, '+"+(seconds)+" SECONDS') >= '"+now.format("YYYY-MM-DD HH:mm:ss")+"' AND DATETIME(`activity`.`latest`, '+"+(seconds+60)+" SECONDS') < '"+now.format("YYYY-MM-DD HH:mm:ss")+"'", (err, rows) => {
         if (err) return reject(err);
         resolve(rows)
       });
