@@ -95,8 +95,11 @@ const whatsapp = await (async () => {
 					const { data } = await whatsapp.apiSession().me();
 					whatsapp.user = data;
 					whatsapp.name = data.pushName;
-					setTimeout(recordGoupAndContact, 6_000);
-					mbsMessage.freshDatabaseQueue();
+					setTimeout(() => {
+						recordGoupAndContact();
+						socketEmit('user', whatsapp.user);
+						mbsMessage.freshDatabaseQueue();
+					}, 6_000);
 				}
 			} while(isOff)
 			return whatsapp;
