@@ -9,29 +9,13 @@ exports.useSqlTrack = function (dbName) {
   });
 
   function updateChatTime(phone, time) {
-    retrieveChat(phone)
-    .then((contact) => {
-      const momentTime = moment.unix(time)
-      if (contact) {
-        if (momentTime.isAfter(contact.latest)) {
-          db.serialize(() => {
-            const stmt = db.prepare('INSERT OR REPLACE INTO `activity` (`latest`, `id`) VALUES (?, ?)');
-            const stringTime = momentTime.format("YYYY-MM-DD HH:mm:ss")
-            console.log("INSERT OR REPLACE ", stringTime, phone)
-            stmt.run(stringTime, phone);
-            stmt.finalize();
-          });
-        }
-      }else{
-        db.serialize(() => {
-          const stmt = db.prepare('INSERT INTO `activity` (`latest`, `id`) VALUES (?, ?)');
-          const stringTime = momentTime.format("YYYY-MM-DD HH:mm:ss")
-          console.log("INSERT ", stringTime, phone)
-          stmt.run(stringTime, phone);
-          stmt.finalize();
-        });
-      }
-    })
+    const momentTime = moment.unix(time)
+    db.serialize(() => {
+      const stmt = db.prepare('INSERT OR REPLACE INTO `activity` (`latest`, `id`) VALUES (?, ?)');
+      const stringTime = momentTime.format("YYYY-MM-DD HH:mm:ss")
+      stmt.run(stringTime, phone);
+      stmt.finalize();
+    });
   }
   
   function retrieveChat(phone, minute = null) {
@@ -39,7 +23,7 @@ exports.useSqlTrack = function (dbName) {
       db.get("SELECT * FROM `activity` WHERE `id` = '"+phone+"'", (err, row) => {
         if (err) return reject(err);
         if (row) {
-          db.get("SELECT * FROM `activity` WHERE `id` = '"+phone+"'" + (minute === null ? "" : " AND DATETIME(`activity`.`latest`, '+"+minute+" MINUTES') < '"+moment().format("YYYY-MM-DD HH:mm:ss")+"'"), (err, row) => {
+          db.get("SELECT * FROM `activity` WHERE `id` = '"+phone+"'" + (minute === null ? "" : " AND DATETIME(`activity`.`latest`, '+"+minute+" MINUTES') < date'"+moment().format("YYYY-MM-DD HH:mm:ss")+"'"), (err, row) => {
             if (err) return reject(err);
             resolve(!!row)
           });
@@ -50,10 +34,10 @@ exports.useSqlTrack = function (dbName) {
     })
   }
 
-  function getAwayNumbers(minute) {
+  function getAwayNumbers(minute, now) {
     return new Promise((resolve, reject) => {
-      const now = moment().format("YYYY-MM-DD HH:mm:ss");
-      db.all("SELECT * FROM `activity` WHERE `id` != 'me' AND DATETIME(`activity`.`latest`, '+"+minute+" MINUTES') >= '"+now+"' AND DATETIME(`activity`.`latest`, '+"+(minute+1)+" MINUTES') <= '"+now+"'", (err, rows) => {
+      const seconds = minute*60;
+      db.all("SELECT * FROM `activity` WHERE `id` != 'me' AND DATETIME(`activity`.`latest`, '+"+(seconds)+" SECONDS') >= '"+now+"' AND DATETIME(`activity`.`latest`, '+"+(seconds+60)+" SECONDS') < '"+now+"'", (err, rows) => {
         if (err) return reject(err);
         resolve(rows)
       });

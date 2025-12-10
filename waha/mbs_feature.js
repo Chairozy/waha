@@ -44,7 +44,9 @@ function useMBSFeature (whatsapp, service, user) {
   }
 
   function awayTracks() {
+    const now = moment();
     setInterval(() => {
+      now.add(1, 'minute');
       if (!service.feature_chat_bot_google || !service.is_chat_away_message) return;
       sequelize.query(
         "SELECT `chatbot_sheets`.`id`, `chatbot_sheets`.`reply`, `chatbot_sheets`.`interval` FROM `chatbot_sheets` " +
@@ -54,51 +56,53 @@ function useMBSFeature (whatsapp, service, user) {
         { type: "SELECT" }
       ).then(async ([ botReply ]) => {
         if (!botReply) return;
-        const rows = activity.getAwayNumbers(botReply.interval).catch(() => {});
+        const rows = await activity.getAwayNumbers(botReply.interval, now).catch(() => {});
         if (rows && Array.isArray(rows)) {
-          for (const row in rows) {
+          for (const row of rows) {
             const remoteJid = row.id;
             const text_reply = botReply.reply;
             const send_event = 'chat_bot_away_reply';
-            const messageSentLog = await service.createMessageSentLog({
-              message : text_reply,
-              event: send_event,
-              processed_messages: 1,
-              phone_auth: service.phone_auth,
-              status: 'complete'
-            }).catch(err => null);
-
-            const insertNumberSentLog = (status, message, payload = null) => {
-              messageSentLog.createMessageNumberSentLog({
-                number: remoteJid,
-                entity: [remoteJid],
-                status: status,
-                response: message,
-                id_stanza: payload ? payload.id_stanza : null,
-                send_json: payload ? payload.send_json : null,
-                cost_credits: status == 'success' ? user.is_subscription_service ? 0 : service.cost_per_forward : 0
-              });
-            }
-
-            if (user.is_subscription_service || payWithCredit(messageSentLog, send_event)) {
-              whatsapp.sendMessage(remoteJid, {text: text_reply})
-              .then(({data}) => {
-                data = cloneWithoutHiddenData(data);
-                insertNumberSentLog('success', 'Pesan Terkirim', {
-                  send_json: data,
-                  id_stanza: getChatId(data)
+            setTimeout(async () => {
+              const messageSentLog = await service.createMessageSentLog({
+                message : text_reply,
+                event: send_event,
+                processed_messages: 1,
+                phone_auth: service.phone_auth,
+                status: 'complete'
+              }).catch(err => null);
+  
+              const insertNumberSentLog = (status, message, payload = null) => {
+                messageSentLog.createMessageNumberSentLog({
+                  number: remoteJid,
+                  entity: [remoteJid],
+                  status: status,
+                  response: message,
+                  id_stanza: payload ? payload.id_stanza : null,
+                  send_json: payload ? payload.send_json : null,
+                  cost_credits: status == 'success' ? user.is_subscription_service ? 0 : service.cost_per_forward : 0
+                });
+              }
+  
+              if (user.is_subscription_service || payWithCredit(messageSentLog, send_event)) {
+                whatsapp.sendMessage(remoteJid, {text: text_reply})
+                .then(({data}) => {
+                  data = cloneWithoutHiddenData(data);
+                  insertNumberSentLog('success', 'Pesan Terkirim', {
+                    send_json: data,
+                    id_stanza: getChatId(data)
+                  })
+                }).catch(err => {
+                  insertNumberSentLog('success', 'Pesan Terkirim')
+                  console.log(err)
                 })
-              }).catch(err => {
-                insertNumberSentLog('success', 'Pesan Terkirim')
-                console.log(err)
-              })
-            }else{
-              insertNumberSentLog('abort', 'Kredit tidak mencukupi')
-            }
+              }else{
+                insertNumberSentLog('abort', 'Kredit tidak mencukupi')
+              }
+            }, (moment(row.latest).unix() - now.unix()) * 1000)
           }
         }
       }).catch(e => {console.log(e)})
-    })
+    }, 60_000)
   }
 
   async function featureHandlers(msg) {
@@ -115,10 +119,8 @@ function useMBSFeature (whatsapp, service, user) {
     await user.reload();    
 
     await chatBotFeature(msgFrom, msg);
-    if (service.feature_chat_bot_google && (service.is_chat_bot_google || service.is_chat_welcome_message || service.is_chat_away_message)) {
-      if (!whatsapp.jid.isJidGroup(msgFrom) && !msg.fromMe) {
-        activity.updateChatTime(msgFrom, msg.timestamp);
-      }
+    if (service.feature_chat_bot_google && service.is_chat_welcome_message && !whatsapp.jid.isJidGroup(msgFrom) && !msg.fromMe) {
+      activity.updateChatTime(msgFrom, msg.timestamp);
     }
 
     await outForwardMessage(msgFrom, msg);
