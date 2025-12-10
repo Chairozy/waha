@@ -100,7 +100,7 @@ function useMBSFeature (whatsapp, service, user) {
               }else{
                 insertNumberSentLog('abort', 'Kredit tidak mencukupi')
               }
-            }, (moment(row.latest).unix() - now.unix()) * 1000)
+            }, ((moment(row.latest).unix() + (botReply.interval*60)) - now.unix()) * 1000)
           }
         }
       }).catch(e => {console.log(e)})
