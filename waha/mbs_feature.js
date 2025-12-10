@@ -45,9 +45,10 @@ function useMBSFeature (whatsapp, service, user) {
   }
 
   function awayTracks() {
-    const now = moment();
+    const time = moment();
     setInterval(() => {
-      now.add(1, 'minute');
+      time.add(1, 'minute');
+      const now = time.clone();
       if (!service.feature_chat_bot_google || !service.is_chat_away_message) return;
       sequelize.query(
         "SELECT `chatbot_sheets`.`id`, `chatbot_sheets`.`reply`, `chatbot_sheets`.`interval` FROM `chatbot_sheets` " +

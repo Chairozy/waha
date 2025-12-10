@@ -23,7 +23,7 @@ exports.useSqlTrack = function (dbName) {
       db.get("SELECT * FROM `activity` WHERE `id` = '"+phone+"'", (err, row) => {
         if (err) return reject(err);
         if (row) {
-          db.get("SELECT * FROM `activity` WHERE `id` = '"+phone+"'" + (minute === null ? "" : " AND DATETIME(`activity`.`latest`, '+"+minute+" MINUTES') < date'"+moment().format("YYYY-MM-DD HH:mm:ss")+"'"), (err, row) => {
+          db.get("SELECT * FROM `activity` WHERE `id` = '"+phone+"'" + (minute === null ? "" : " AND DATETIME(`activity`.`latest`, '+"+minute+" MINUTES') < '"+moment().format("YYYY-MM-DD HH:mm:ss")+"'"), (err, row) => {
             if (err) return reject(err);
             resolve(!!row)
           });
